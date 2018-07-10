@@ -198,5 +198,5 @@ func main() {
 		go sl.handleMsg(i)
 	}
 
-	time.Sleep(10000 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 }
