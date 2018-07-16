@@ -13,6 +13,7 @@ type slush struct {
 	k       int           // sample size
 	a       float32       // percentage after which we change color [0,1)
 	timeout time.Duration // timeout after which we re-sample
+	acceptmsg chan int
 }
 
 type node struct {
@@ -37,11 +38,13 @@ type message struct {
 
 func (s *slush) networkInit(numnodes int) {
 	s.players = make([]node, numnodes)
+	s.acceptmsg = make(chan int, numnodes)
 	for i := 0; i < numnodes; i++ {
 		s.players[i].identity = i
 		s.players[i].color = uncolored
 		s.players[i].incoming = make(chan message, 100)
 		s.players[i].signal = make(chan bool)
+
 		//comment
 	}
 }
@@ -97,7 +100,8 @@ func (s *slush) handleMsg(index int) {
 				s.players[index].countRed++
 				s.players[index].lock.Unlock()
 			}
-			fmt.Println(index, "reply", processmsg, s.players[index].countBlue, s.players[index].countRed)
+			// logs all the communication
+			// fmt.Println(index, "reply", processmsg, s.players[index].countBlue, s.players[index].countRed)
 			// signal slushLoop that we got k  replies
 			if s.players[index].countBlue+s.players[index].countRed == s.k {
 				s.players[index].signal <- true
@@ -116,7 +120,8 @@ func (s *slush) handleMsg(index int) {
 func (s *slush) slushLoop(id int) {
 	// do m rounds of sampling
 	for i := 0; i < s.m; i++ {
-		fmt.Println(id, "slush", i)
+		// Print statement for debugging
+		// fmt.Println(id, "slush", i)
 		s.players[id].round = i
 
 		// sample k neigbours
@@ -149,8 +154,9 @@ func (s *slush) slushLoop(id int) {
 		}
 		s.players[id].lock.Unlock()
 	}
-
-	fmt.Println(id, " accepted ", s.players[id].color)
+	//Print statement printing when a node accepts a particular message
+	// fmt.Println(id, " accepted ", s.players[id].color)
+	s.acceptmsg <- s.players[id].color
 }
 
 // Process msg
@@ -168,7 +174,8 @@ func (s *slush) clientinit(num int, color int) {
 	for i := 0; i < num; i++ {
 		index := rand.Intn(len(s.players))
 		s.players[index].incoming <- message{color, -1, index, initialisation, 0}
-		fmt.Println(index)
+		// Prints the indexes for debugging
+		// fmt.Println(index)
 	}
 }
 
@@ -185,19 +192,25 @@ const (
 )
 
 func main() {
-
+	var numNodes int = 100
 	sl := slush{
 		a: 0.51,
 		m: 5,
 		k: 10,
 	}
-	sl.networkInit(100)
+	sl.networkInit(numNodes)
 
 	go sl.clientinit(5, blue)
-	go sl.clientinit(3, red)
-	for i := 0; i < 100; i++ {
+	go sl.clientinit(5, red)
+	for i := 0; i < numNodes; i++ {
 		go sl.handleMsg(i)
 	}
 
-	time.Sleep(1000 * time.Millisecond)
+	var counts [3]int
+
+	for i:=0; i<numNodes;i++ {
+		x := <- sl.acceptmsg
+		counts[x]++
+	}
+	fmt.Println(counts)
 }
