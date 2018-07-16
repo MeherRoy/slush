@@ -2,15 +2,17 @@ package main
 
 import (
 	"testing"
+	"fmt"
 )
 
 func Test5050(t *testing.T) {
+	var countBad int
 	for i:=0; i<1000; i++ {
 		var numNodes int = 100
 		sl := Slush{
 			a: 0.51,
-			m: 5,
-			k: 10,
+			m: 10,
+			k: 20,
 		}
 		sl.networkInit(numNodes)
 
@@ -29,13 +31,16 @@ func Test5050(t *testing.T) {
 
 		if countsexp[0] != 0 {
 			t.Error("something stayed uninitialised", countsexp, i)
+			countBad++
 		}
 		if countsexp[1] > 0 {
 			if countsexp[2] != 0 {
 				t.Error("consensus error, nodes partitioned", countsexp, i)
+				countBad++
 			}
 			if countsexp[1] != numNodes {
 				t.Error("some nodes not in consensus", countsexp, i)
+				countBad++
 			}
 		}
 		if countsexp[2] > 0 {
@@ -46,7 +51,7 @@ func Test5050(t *testing.T) {
 				t.Error("some nodes not in consensus", countsexp, i)
 			}
 		}
-
 	}
+	fmt.Println(countBad)
 }
 
