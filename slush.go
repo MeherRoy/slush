@@ -42,6 +42,7 @@ func (s *slush) networkInit(numnodes int) {
 		s.players[i].color = uncolored
 		s.players[i].incoming = make(chan message, 100)
 		s.players[i].signal = make(chan bool)
+		//comment
 	}
 }
 
