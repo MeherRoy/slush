@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type slush struct {
+type Slush struct {
 	players []node        // nodes in the simulation
 	m       int           // number of times to sample
 	k       int           // sample size
@@ -36,7 +36,7 @@ type message struct {
 	round    int
 }
 
-func (s *slush) networkInit(numnodes int) {
+func (s *Slush) networkInit(numnodes int) {
 	s.players = make([]node, numnodes)
 	s.acceptmsg = make(chan int, numnodes)
 	for i := 0; i < numnodes; i++ {
@@ -58,7 +58,7 @@ func (s *slush) networkInit(numnodes int) {
 
 }*/
 
-/*func (s *slush) query(index int,  numberSample int, waitTime time.Duration) {
+/*func (s *Slush) query(index int,  numberSample int, waitTime time.Duration) {
 	if players[index].color != uncolored {
 		for i := 0; i < numberSample; i++ {
 			sampleNode := rand.Intn(len(players))
@@ -67,7 +67,7 @@ func (s *slush) networkInit(numnodes int) {
 	}
 }*/
 
-func (s *slush) handleMsg(index int) {
+func (s *Slush) handleMsg(index int) {
 	for {
 		// get the msg from channel
 		processmsg := <-s.players[index].incoming
@@ -81,7 +81,7 @@ func (s *slush) handleMsg(index int) {
 			s.OnQuery(index, processmsg)
 		}
 
-		// start main slush loop when we first get a color
+		// start main Slush loop when we first get a color
 		if s.players[index].color != uncolored && !s.players[index].started {
 			s.players[index].started = true
 			go s.slushLoop(index)
@@ -91,7 +91,7 @@ func (s *slush) handleMsg(index int) {
 		if s.players[index].started && processmsg.round == s.players[index].round &&
 			processmsg.msgtype == response {
 
-			if processmsg.color == blue {
+			if processmsg.color == Blue {
 				s.players[index].lock.Lock()
 				s.players[index].countBlue++
 				s.players[index].lock.Unlock()
@@ -116,12 +116,12 @@ func (s *slush) handleMsg(index int) {
 	}
 }
 
-// main slush loop
-func (s *slush) slushLoop(id int) {
+// main Slush loop
+func (s *Slush) slushLoop(id int) {
 	// do m rounds of sampling
 	for i := 0; i < s.m; i++ {
 		// Print statement for debugging
-		// fmt.Println(id, "slush", i)
+		// fmt.Println(id, "Slush", i)
 		s.players[id].round = i
 
 		// sample k neigbours
@@ -147,10 +147,10 @@ func (s *slush) slushLoop(id int) {
 		<-s.players[id].signal
 		s.players[id].lock.Lock()
 		if float32(s.players[id].countRed) > s.a*float32(s.k) {
-			s.players[id].color = red
+			s.players[id].color = Red
 		}
 		if float32(s.players[id].countBlue) > s.a*float32(s.k) {
-				s.players[id].color = blue
+				s.players[id].color = Blue
 		}
 		s.players[id].lock.Unlock()
 	}
@@ -160,7 +160,7 @@ func (s *slush) slushLoop(id int) {
 }
 
 // Process msg
-func (s *slush) OnQuery(id int, msg message) {
+func (s *Slush) OnQuery(id int, msg message) {
 	// If uninitialized set our color to the color of the query sender
 	if s.players[id].color == uncolored {
 		s.players[id].color = msg.color
@@ -170,7 +170,7 @@ func (s *slush) OnQuery(id int, msg message) {
 	s.players[msg.ornode].incoming <- message{s.players[id].color, id, msg.ornode, response, msg.round}
 }
 
-func (s *slush) clientinit(num int, color int) {
+func (s *Slush) clientinit(num int, color int) {
 	for i := 0; i < num; i++ {
 		index := rand.Intn(len(s.players))
 		s.players[index].incoming <- message{color, -1, index, initialisation, 0}
@@ -181,8 +181,8 @@ func (s *slush) clientinit(num int, color int) {
 
 const (
 	uncolored = iota
-	red
-	blue
+	Red
+	Blue
 )
 
 const (
@@ -193,15 +193,15 @@ const (
 
 func main() {
 	var numNodes int = 100
-	sl := slush{
+	sl := Slush{
 		a: 0.51,
 		m: 5,
 		k: 10,
 	}
 	sl.networkInit(numNodes)
 
-	go sl.clientinit(5, blue)
-	go sl.clientinit(5, red)
+	go sl.clientinit(5, Blue)
+	go sl.clientinit(5, Red)
 	for i := 0; i < numNodes; i++ {
 		go sl.handleMsg(i)
 	}
