@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+	"math"
 	"github.com/gopherjs/gopherjs/js"
 )
 
@@ -15,6 +16,12 @@ type Slush struct {
 	a       float32       // percentage after which we change color [0,1)
 	timeout time.Duration // timeout after which we re-sample
 	acceptmsg chan int
+}
+
+type location struct {
+	X float64
+	Y float64
+	r float64
 }
 
 type node struct {
@@ -214,16 +221,30 @@ func main() {
 		counts[x]++
 	}
 	fmt.Println(counts)
+
+	document := js.Global.Get("document")
+	canvas := document.Call("getElementById", "cnvs")
+
+	loc := getlocrad(400.0, numNodes, 500, 500)
+	for i := range loc {
+		DrawNode(canvas, int(loc[i].X), int(loc[i].Y), i,0, int(loc[i].r))
+	}
 }
 
-func getlocrad () (float64) {
-
+//this function get the locations of
+func getlocrad (radiusPx float64, numNodes int, centerX int, centerY int) ([]location) {
+	var loc = make([]location , numNodes)
+	radOffset := float64(2 * math.Pi / float64(numNodes))
+	for i:=0; i< numNodes; i++ {
+		radDistance := float64(i) * radOffset
+		loc[i].Y = float64(centerY) + radiusPx * math.Cos(radDistance)
+		loc[i].X = float64(centerX) + radiusPx * math.Sin(radDistance)
+		loc[i].r = 0.4 * 2 * radiusPx * math.Sin(radOffset / 2)
+	}
+	return loc
 }
 
-
-
-
-func DrawNode(canvas *js.Object, x, y, id int, color int) {
+func DrawNode(canvas *js.Object, x, y, id int, color int, radius int) {
 	var fillstyle string
 	// map colors blue or red to the correct JS fillstyles
 	if color == uncolored {
@@ -237,12 +258,17 @@ func DrawNode(canvas *js.Object, x, y, id int, color int) {
 	ctx := canvas.Call("getContext", "2d")
 	// TODO get this from node color
 	ctx.Set("fillStyle", fillstyle)
-	ctx.Call("fillRect", x, y, 20, 25)
-	ctx.Set("font", "18px Arial")
+	// ctx.Call("fillRect", x, y, 20, 25)
+
+	ctx.Call("beginPath")
+	ctx.Call("arc",x,y,radius,0,2 * math.Pi)
+	ctx.Call("fill")
+
+	ctx.Set("font", "7px Arial")
 	ctx.Set("fillStyle", "#FFFFFF")
 	// TODO set to node id
 	str := fmt.Sprint(id)
-	ctx.Call("fillText", str, x+5, y+20)
+	ctx.Call("fillText", str, x-5, y)
 }
 
 func DrawLine(canvas *js.Object, x1, y1, x2, y2 int) {
