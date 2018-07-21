@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+	"github.com/gopherjs/gopherjs/js"
 )
 
 type Slush struct {
@@ -142,7 +143,7 @@ func (s *Slush) slushLoop(id int) {
 			// send query to sample node
 			s.players[sample].incoming <- message{s.players[id].color, id, sample, query, i}
 
-		}
+	}
 		// wait for replies
 		<-s.players[id].signal
 		s.players[id].lock.Lock()
@@ -213,4 +214,41 @@ func main() {
 		counts[x]++
 	}
 	fmt.Println(counts)
+}
+
+func getlocrad () (float64) {
+
+}
+
+
+
+
+func DrawNode(canvas *js.Object, x, y, id int, color int) {
+	var fillstyle string
+	// map colors blue or red to the correct JS fillstyles
+	if color == uncolored {
+		fillstyle = "#D3D3D3"
+	} else if color == Red {
+		fillstyle = "#FF0000"
+ 	} else if color == Blue {
+		fillstyle = "#0000FF"
+	}
+
+	ctx := canvas.Call("getContext", "2d")
+	// TODO get this from node color
+	ctx.Set("fillStyle", fillstyle)
+	ctx.Call("fillRect", x, y, 20, 25)
+	ctx.Set("font", "18px Arial")
+	ctx.Set("fillStyle", "#FFFFFF")
+	// TODO set to node id
+	str := fmt.Sprint(id)
+	ctx.Call("fillText", str, x+5, y+20)
+}
+
+func DrawLine(canvas *js.Object, x1, y1, x2, y2 int) {
+	ctx := canvas.Call("getContext", "2d")
+	ctx.Set("strokeStyle", "#000000")
+	ctx.Call("moveTo", x1, y1)
+	ctx.Call("lineTo", x2, y2)
+	ctx.Call("stroke")
 }
