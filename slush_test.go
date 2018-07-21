@@ -55,3 +55,7 @@ func Test5050(t *testing.T) {
 	fmt.Println(countBad)
 }
 
+func TestDrawloc(t *testing.T) {
+	locations := getlocrad(100, 8)
+	t.Log(locations)
+}
