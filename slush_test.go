@@ -1,8 +1,8 @@
 package main
 
 import (
-	"testing"
-	"fmt"
+"testing"
+"fmt"
 )
 
 func Test5050(t *testing.T) {
