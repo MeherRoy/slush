@@ -121,6 +121,7 @@ func (s *Slush) handleMsg(index int) {
 			processmsg.msgtype == response {
 			// discard out of order msg
 		}
+		time.Sleep(1000*time.Millisecond)
 	}
 }
 
@@ -200,6 +201,7 @@ const (
 )
 
 func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
 	var numNodes int = 100
 	sl := Slush{
 		a: 0.51,
@@ -207,9 +209,10 @@ func main() {
 		k: 10,
 	}
 	sl.networkInit(numNodes)
-
-	go sl.clientinit(5, Blue)
-	go sl.clientinit(5, Red)
+	go sl.color(numNodes)
+	time.Sleep(2000*time.Millisecond)
+	go sl.clientinit(1, Blue)
+	go sl.clientinit(1, Red)
 	for i := 0; i < numNodes; i++ {
 		go sl.handleMsg(i)
 	}
@@ -221,13 +224,19 @@ func main() {
 		counts[x]++
 	}
 	fmt.Println(counts)
+}
 
+func (sl *Slush) color(numNodes int) {
 	document := js.Global.Get("document")
 	canvas := document.Call("getElementById", "cnvs")
 
 	loc := getlocrad(400.0, numNodes, 500, 500)
-	for i := range loc {
-		DrawNode(canvas, int(loc[i].X), int(loc[i].Y), i,0, int(loc[i].r))
+
+	for {
+		for i := range loc {
+			DrawNode(canvas, int(loc[i].X), int(loc[i].Y), i,sl.players[i].color, int(loc[i].r))
+		}
+		time.Sleep(1*time.Microsecond)
 	}
 }
 
