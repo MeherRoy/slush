@@ -2,19 +2,19 @@ package main
 
 import (
 	"fmt"
+	"github.com/gopherjs/gopherjs/js"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
-	"math"
-	"github.com/gopherjs/gopherjs/js"
 )
 
 type Slush struct {
-	players []node        // nodes in the simulation
-	m       int           // number of times to sample
-	k       int           // sample size
-	a       float32       // percentage after which we change color [0,1)
-	timeout time.Duration // timeout after which we re-sample
+	players   []node        // nodes in the simulation
+	m         int           // number of times to sample
+	k         int           // sample size
+	a         float32       // percentage after which we change color [0,1)
+	timeout   time.Duration // timeout after which we re-sample
 	acceptmsg chan int
 }
 
@@ -56,24 +56,6 @@ func (s *Slush) networkInit(numnodes int) {
 		//comment
 	}
 }
-
-/*func update(index int, players []node, numberSample int, waitTime time.Duration) {
-	//go handleMsg(index, players []node,)
-	//this code handles query to other nodes
-
-	sleeptime = rand.Intn(1000)
-	time.Sleep(sleeptime * time.Millisecond)
-
-}*/
-
-/*func (s *Slush) query(index int,  numberSample int, waitTime time.Duration) {
-	if players[index].color != uncolored {
-		for i := 0; i < numberSample; i++ {
-			sampleNode := rand.Intn(len(players))
-			players[sampleNode].incoming <- message{players[index].color, index, sampleNode, query}
-		}
-	}
-}*/
 
 func (s *Slush) handleMsg(index int) {
 	for {
@@ -121,7 +103,7 @@ func (s *Slush) handleMsg(index int) {
 			processmsg.msgtype == response {
 			// discard out of order msg
 		}
-		time.Sleep(1000*time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
 
@@ -151,7 +133,7 @@ func (s *Slush) slushLoop(id int) {
 			// send query to sample node
 			s.players[sample].incoming <- message{s.players[id].color, id, sample, query, i}
 
-	}
+		}
 		// wait for replies
 		<-s.players[id].signal
 		s.players[id].lock.Lock()
@@ -159,7 +141,7 @@ func (s *Slush) slushLoop(id int) {
 			s.players[id].color = Red
 		}
 		if float32(s.players[id].countBlue) > s.a*float32(s.k) {
-				s.players[id].color = Blue
+			s.players[id].color = Blue
 		}
 		s.players[id].lock.Unlock()
 	}
@@ -210,7 +192,7 @@ func main() {
 	}
 	sl.networkInit(numNodes)
 	go sl.color(numNodes)
-	time.Sleep(2000*time.Millisecond)
+	time.Sleep(2000 * time.Millisecond)
 	go sl.clientinit(1, Blue)
 	go sl.clientinit(1, Red)
 	for i := 0; i < numNodes; i++ {
@@ -219,8 +201,8 @@ func main() {
 
 	var counts [3]int
 
-	for i:=0; i<numNodes;i++ {
-		x := <- sl.acceptmsg
+	for i := 0; i < numNodes; i++ {
+		x := <-sl.acceptmsg
 		counts[x]++
 	}
 	fmt.Println(counts)
@@ -234,56 +216,21 @@ func (sl *Slush) color(numNodes int) {
 
 	for {
 		for i := range loc {
-			DrawNode(canvas, int(loc[i].X), int(loc[i].Y), i,sl.players[i].color, int(loc[i].r))
+			DrawNode(canvas, int(loc[i].X), int(loc[i].Y), i, sl.players[i].color, int(loc[i].r))
 		}
-		time.Sleep(1*time.Microsecond)
+		time.Sleep(1 * time.Microsecond)
 	}
 }
 
 //this function get the locations of
-func getlocrad (radiusPx float64, numNodes int, centerX int, centerY int) ([]location) {
-	var loc = make([]location , numNodes)
+func getlocrad(radiusPx float64, numNodes int, centerX int, centerY int) []location {
+	var loc = make([]location, numNodes)
 	radOffset := float64(2 * math.Pi / float64(numNodes))
-	for i:=0; i< numNodes; i++ {
+	for i := 0; i < numNodes; i++ {
 		radDistance := float64(i) * radOffset
-		loc[i].Y = float64(centerY) + radiusPx * math.Cos(radDistance)
-		loc[i].X = float64(centerX) + radiusPx * math.Sin(radDistance)
-		loc[i].r = 0.4 * 2 * radiusPx * math.Sin(radOffset / 2)
+		loc[i].Y = float64(centerY) + radiusPx*math.Cos(radDistance)
+		loc[i].X = float64(centerX) + radiusPx*math.Sin(radDistance)
+		loc[i].r = 0.4 * 2 * radiusPx * math.Sin(radOffset/2)
 	}
 	return loc
-}
-
-func DrawNode(canvas *js.Object, x, y, id int, color int, radius int) {
-	var fillstyle string
-	// map colors blue or red to the correct JS fillstyles
-	if color == uncolored {
-		fillstyle = "#D3D3D3"
-	} else if color == Red {
-		fillstyle = "#FF0000"
- 	} else if color == Blue {
-		fillstyle = "#0000FF"
-	}
-
-	ctx := canvas.Call("getContext", "2d")
-	// TODO get this from node color
-	ctx.Set("fillStyle", fillstyle)
-	// ctx.Call("fillRect", x, y, 20, 25)
-
-	ctx.Call("beginPath")
-	ctx.Call("arc",x,y,radius,0,2 * math.Pi)
-	ctx.Call("fill")
-
-	ctx.Set("font", "7px Arial")
-	ctx.Set("fillStyle", "#FFFFFF")
-	// TODO set to node id
-	str := fmt.Sprint(id)
-	ctx.Call("fillText", str, x-5, y)
-}
-
-func DrawLine(canvas *js.Object, x1, y1, x2, y2 int) {
-	ctx := canvas.Call("getContext", "2d")
-	ctx.Set("strokeStyle", "#000000")
-	ctx.Call("moveTo", x1, y1)
-	ctx.Call("lineTo", x2, y2)
-	ctx.Call("stroke")
 }

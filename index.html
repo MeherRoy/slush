@@ -1,7 +1,79 @@
-
 <html>
-<body>
-<canvas id="cnvs" height="1000" width="1000"></canvas>
-<script src="slush.js"></script>
-</body>
+  <body>
+    <canvas id="cnvs" height="1000" width="1000"></canvas>
+    <script type="text/javascript">
+
+      var c = document.getElementById("cnvs");
+
+      // array to hold node colors
+      var nodes = [];
+      
+      //DrawLine(c, 0, 0, 10, 100)
+      //DrawNode(c, 50, 50, 12, "#FF0000", 10)
+      //DrawNodes(c, 50, 60, 60)
+          
+      if (window["WebSocket"]) {
+	  conn = new WebSocket("ws://" + document.location.host + "/ws");
+	  conn.onclose = function (evt) {
+	      alert("Connection closed");
+	  };
+
+	  // callback which triggers when message is received
+	  conn.onmessage = function (evt) {
+	      // update node color with server data
+	      var nodeData = JSON.parse(evt.data);
+	      nodes[nodeData.Id] = nodeData.Color
+	      //alert(nodeData.Id + nodes[nodeData.Id])
+	      DrawNodes(c, 400, 500, 500)
+	  };
+	  
+      } else {
+	  alert("Your browser does not support WebSockets");
+      }
+
+      function DrawLine(canvas, x1, y1, x2, y2) {
+	  ctx = canvas.getContext("2d")
+	  ctx.moveTo(x1,y1);
+	  ctx.lineTo(x2,y2);
+	  ctx.stroke();
+      }
+
+      function DrawNode(canvas, x, y, id, color, radius) {
+	  ctx = canvas.getContext("2d");
+	  ctx.fillStyle = color;
+	  ctx.beginPath();
+	  ctx.arc(x, y, radius, 0, 2 * Math.PI);
+	  ctx.fill();
+
+	  ctx.font =  "12px Arial"
+	  ctx.fillStyle = "#FFFFFF"
+	  ctx.fillText(id, x-7, y+3)
+      }
+
+      function DrawNodes(canvas, radiusPx, centerX, centerY) {
+
+	  if(nodes.length == 0) {
+	      return
+	  }
+
+	  //clear everything and redraw
+	  ctx = canvas.getContext("2d");
+	  ctx.clearRect(0, 0, canvas.width, canvas.height);
+	  
+	  radOffset = 2 * Math.PI / nodes.length
+	  
+	  for(i=0; i<nodes.length; i++){
+
+	      // node position
+	      radDistance = i * radOffset
+	      y = centerY + radiusPx * Math.cos(radDistance)
+	      x = centerX + radiusPx * Math.sin(radDistance)
+	      r = 0.4 * 2 * radiusPx * Math.sin(radOffset/2)
+
+	      DrawNode(canvas, x, y, i, nodes[i], r)
+	  }
+      }
+      
+    </script>
+  </body>
 </html>
