@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/gopherjs/gopherjs/js"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
+	"github.com/gorilla/websocket"
+	"net/http"
+	"log"
+	"encoding/json"
 )
 
 type Slush struct {
@@ -44,6 +46,24 @@ type message struct {
 	round    int
 }
 
+var numNodes = 100
+
+var sl = Slush{
+	a: 0.51,
+	m: 5,
+	k: 10,
+}
+
+var colorChange chan ClientData
+
+var upgrader = websocket.Upgrader{} // use default websocket options
+
+// Data to stream to clients
+type ClientData struct {
+	Id    int    // node (player) id
+	Color string // node color
+}
+
 func (s *Slush) networkInit(numnodes int) {
 	s.players = make([]node, numnodes)
 	s.acceptmsg = make(chan int, numnodes)
@@ -65,6 +85,7 @@ func (s *Slush) handleMsg(index int) {
 		// handle init msg if we are uninitialized
 		if processmsg.msgtype == initialisation && s.players[index].color == uncolored {
 			s.players[index].color = processmsg.color
+			colorChange <- ClientData{index,colors[s.players[index].color]}
 		}
 
 		if processmsg.msgtype == query {
@@ -112,7 +133,7 @@ func (s *Slush) slushLoop(id int) {
 	// do m rounds of sampling
 	for i := 0; i < s.m; i++ {
 		// Print statement for debugging
-		// fmt.Println(id, "Slush", i)
+		fmt.Println(id, "Slush", i)
 		s.players[id].round = i
 
 		// sample k neigbours
@@ -139,9 +160,11 @@ func (s *Slush) slushLoop(id int) {
 		s.players[id].lock.Lock()
 		if float32(s.players[id].countRed) > s.a*float32(s.k) {
 			s.players[id].color = Red
+			colorChange <- ClientData{id,colors[s.players[id].color]}
 		}
 		if float32(s.players[id].countBlue) > s.a*float32(s.k) {
 			s.players[id].color = Blue
+			colorChange <- ClientData{id,colors[s.players[id].color]}
 		}
 		s.players[id].lock.Unlock()
 	}
@@ -155,6 +178,7 @@ func (s *Slush) OnQuery(id int, msg message) {
 	// If uninitialized set our color to the color of the query sender
 	if s.players[id].color == uncolored {
 		s.players[id].color = msg.color
+		colorChange <- ClientData{id,colors[s.players[id].color]}
 	}
 
 	// respond with our color
@@ -170,11 +194,33 @@ func (s *Slush) clientinit(num int, color int) {
 	}
 }
 
+func (s *Slush) startSimulation() {
+	s.networkInit(numNodes)
+	go s.clientinit(1, Blue)
+	go s.clientinit(1, Red)
+
+	for i := 0; i < numNodes; i++ {
+		go s.handleMsg(i)
+	}
+
+	var counts [3]int
+
+	for i := 0; i < numNodes; i++ {
+		x := <-s.acceptmsg
+		counts[x]++
+	}
+	fmt.Println(counts)
+}
+
 const (
 	uncolored = iota
 	Red
 	Blue
 )
+
+var colors = [3]string{
+	"#00 FF00", "#FF0000", "#0000FF",
+}
 
 const (
 	query = iota
@@ -182,55 +228,65 @@ const (
 	initialisation
 )
 
-func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-	var numNodes int = 100
-	sl := Slush{
-		a: 0.51,
-		m: 5,
-		k: 10,
+func handler(w http.ResponseWriter, r *http.Request) {
+	log.Print(r.Host, " connected (ws)")
+
+	// upgrade the http connection to a websocket
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
 	}
-	sl.networkInit(numNodes)
-	go sl.color(numNodes)
-	time.Sleep(2000 * time.Millisecond)
-	go sl.clientinit(1, Blue)
-	go sl.clientinit(1, Red)
-	for i := 0; i < numNodes; i++ {
-		go sl.handleMsg(i)
-	}
+	// starts the simulation once the connection is established (few lines back)
+	go sl.startSimulation()
+	defer c.Close()
 
-	var counts [3]int
-
-	for i := 0; i < numNodes; i++ {
-		x := <-sl.acceptmsg
-		counts[x]++
-	}
-	fmt.Println(counts)
-}
-
-func (sl *Slush) color(numNodes int) {
-	document := js.Global.Get("document")
-	canvas := document.Call("getElementById", "cnvs")
-
-	loc := getlocrad(400.0, numNodes, 500, 500)
-
+	// send some messages to the client
 	for {
-		for i := range loc {
-			DrawNode(canvas, int(loc[i].X), int(loc[i].Y), i, sl.players[i].color, int(loc[i].r))
+		data := <- colorChange
+		buf, _ := json.Marshal(data)
+
+		err = c.WriteMessage(websocket.TextMessage, buf)
+		if err != nil {
+			log.Println("write:", err)
+			break
 		}
-		time.Sleep(1 * time.Microsecond)
 	}
+
+	// Echo client messages	(write what we read)
+	/*for {
+		mt, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			break
+		}
+		log.Printf("recv: %s", message)
+		err = c.WriteMessage(mt, message)
+		if err != nil {
+			log.Println("write:", err)
+			break
+		}
+	}*/
 }
 
-//this function get the locations of
-func getlocrad(radiusPx float64, numNodes int, centerX int, centerY int) []location {
-	var loc = make([]location, numNodes)
-	radOffset := float64(2 * math.Pi / float64(numNodes))
-	for i := 0; i < numNodes; i++ {
-		radDistance := float64(i) * radOffset
-		loc[i].Y = float64(centerY) + radiusPx*math.Cos(radDistance)
-		loc[i].X = float64(centerX) + radiusPx*math.Sin(radDistance)
-		loc[i].r = 0.4 * 2 * radiusPx * math.Sin(radOffset/2)
+func serveHome(w http.ResponseWriter, r *http.Request) {
+	log.Print(r.Host, " connected")
+	if r.URL.Path != "/" {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
 	}
-	return loc
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	http.ServeFile(w, r, "index.html")
+}
+
+func main() {
+	colorChange = make(chan ClientData, 100)
+	rand.Seed(time.Now().UTC().UnixNano())
+	// Simulation starts inside handler
+	http.HandleFunc("/", serveHome)
+	http.HandleFunc("/ws", handler)
+	log.Fatal(http.ListenAndServe("localhost:8080", nil))
 }
