@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/websocket"
 	"log"
-	"math/rand"
 	"net/http"
-	"time"
 )
 
 var upgrader = websocket.Upgrader{} // use default websocket options
@@ -17,18 +15,7 @@ type ClientData struct {
 	Color string // node color
 }
 
-var colors = [3]string{
-	"#AAAAAA", "#FF0000", "#0000FF",
-}
-
-func main() {
-	http.HandleFunc("/", serveHome)
-	http.HandleFunc("/ws", handler)
-	log.Fatal(http.ListenAndServe("localhost:8080", nil))
-}
-
 func handler(w http.ResponseWriter, r *http.Request) {
-
 	log.Print(r.Host, " connected (ws)")
 
 	// upgrade the http connection to a websocket
@@ -37,16 +24,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		log.Print("upgrade:", err)
 		return
 	}
+	// starts the simulation once the connection is established (few lines back)
+	go sl.startSimulation()
 	defer c.Close()
 
 	// send some messages to the client
-	for i := 0; i < 200; i++ {
-		log.Print("sending ", i)
-
-		data := ClientData{
-			i,
-			colors[rand.Intn(3)],
-		}
+	for {
+		data := <- colorChange
 		buf, _ := json.Marshal(data)
 
 		err = c.WriteMessage(websocket.TextMessage, buf)
@@ -54,8 +38,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Println("write:", err)
 			break
 		}
-
-		time.Sleep(500 * time.Millisecond)
 	}
 
 	// Echo client messages	(write what we read)
