@@ -67,6 +67,7 @@ func (s *Slush) networkInit(numnodes int) {
 	}
 }
 
+//
 func (s *Slush) handleMsg(index int) {
 	for {
 		// get the msg from channel
@@ -76,6 +77,7 @@ func (s *Slush) handleMsg(index int) {
 		if processmsg.msgtype == initialisation && s.players[index].color == uncolored {
 			s.players[index].color = processmsg.color
 			colorChange <- ClientData{index,colors[s.players[index].color]}
+			time.Sleep(1000*time.Millisecond)
 		}
 
 		if processmsg.msgtype == query {
@@ -169,6 +171,7 @@ func (s *Slush) OnQuery(id int, msg message) {
 	if s.players[id].color == uncolored {
 		s.players[id].color = msg.color
 		colorChange <- ClientData{id,colors[s.players[id].color]}
+		time.Sleep(1000*time.Millisecond)
 	}
 
 	// respond with our color
@@ -179,13 +182,15 @@ func (s *Slush) clientinit(num int, color int) {
 	for i := 0; i < num; i++ {
 		index := rand.Intn(len(s.players))
 		s.players[index].incoming <- message{color, -1, index, initialisation, 0}
-		// Prints the indexes for debugging
-		// fmt.Println(index)
 	}
 }
 
 func (s *Slush) startSimulation() {
 	s.networkInit(numNodes)
+	for i := 0; i < numNodes; i++ {
+		colorChange <- ClientData{i,colors[uncolored]}
+	}
+	time.Sleep(1000*time.Millisecond)
 	go s.clientinit(1, Blue)
 	go s.clientinit(1, Red)
 
@@ -209,7 +214,7 @@ const (
 )
 
 var colors = [3]string{
-	"#00FF00", "#FF0000", "#0000FF",
+	"#AAAAAA", "#FF0000", "#0000FF",
 }
 
 const (
